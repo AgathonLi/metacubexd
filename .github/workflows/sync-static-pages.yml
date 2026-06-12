@@ -1,0 +1,41 @@
+name: Sync Static Pages (No-Build)
+
+on:
+  schedule:
+    # 北京时间每周一早上 5:00（UTC 每周日 21:00）
+    - cron: '0 21 * * 0'
+  workflow_dispatch: # 方便随时手动拉取最新版
+
+permissions:
+  contents: write
+
+jobs:
+  sync-gh-pages:
+    runs-on: ubuntu-latest
+    steps:
+      # 第 1 步：拉取原作者的静态分支并清理专属域名文件
+      - name: Fetch Upstream and Clean CNAME
+        run: |
+          # 只克隆原作者的 gh-pages 静态分支，节省时间和空间
+          git clone --branch gh-pages --single-branch https://github.com/metacubex/metacubexd.git static-repo
+          cd static-repo
+          
+          # 强制删除原作者的 CNAME 文件
+          rm -f CNAME
+          
+          # 配置 Git 机器人准备提交修改
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # 记录这次删除操作（如果文件存在的话）
+          git add -A
+          git commit -m "chore: remove upstream CNAME for fork deployment" || echo "No CNAME found, skipping commit"
+
+      # 第 2 步：将处理好的纯净代码推送到你自己的仓库
+      - name: Push to My Repository
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd static-repo
+          # 推送到自己的 gh-pages 分支，完成更新
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:gh-pages --force
