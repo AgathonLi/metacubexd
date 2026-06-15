@@ -1,5 +1,79 @@
 # Changelog
 
+## [1.255.1](https://github.com/MetaCubeX/metacubexd/compare/v1.255.0...v1.255.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **config:** read unified delay from backend key ([#2031](https://github.com/MetaCubeX/metacubexd/issues/2031)) ([e72d6f1](https://github.com/MetaCubeX/metacubexd/commit/e72d6f1f8fd2dba254a8e05a1a50eecc092c992a))
+
+## [1.255.0](https://github.com/MetaCubeX/metacubexd/compare/v1.254.2...v1.255.0) (2026-06-14)
+
+
+### Features
+
+* **rules:** add quick filters and sorting to the rules list page ([e9b5a3f](https://github.com/MetaCubeX/metacubexd/commit/e9b5a3fcf6e6aaf2a011fc1b64b8edb3d9cf4f57))
+
+## [1.254.2](https://github.com/MetaCubeX/metacubexd/compare/v1.254.1...v1.254.2) (2026-06-13)
+
+
+### Performance Improvements
+
+* **modal:** drop blur animations to fix open-lag and bottom-content artifact ([5a270eb](https://github.com/MetaCubeX/metacubexd/commit/5a270eb6835bf1f552844dbd40000baa26ea591e))
+
+## [1.254.1](https://github.com/MetaCubeX/metacubexd/compare/v1.254.0...v1.254.1) (2026-06-13)
+
+
+### Bug Fixes
+
+* **connections:** restore searching by destination IP ([#2021](https://github.com/MetaCubeX/metacubexd/issues/2021)) ([eca2606](https://github.com/MetaCubeX/metacubexd/commit/eca2606fa8a924efaeea33d99c1adcccb47099bd)), closes [#2013](https://github.com/MetaCubeX/metacubexd/issues/2013)
+* **proxies:** apply Twemoji font to node detail tooltip ([#2026](https://github.com/MetaCubeX/metacubexd/issues/2026)) ([203b957](https://github.com/MetaCubeX/metacubexd/commit/203b957a056239cb68e45076aede5da9aa5e17c4)), closes [#2017](https://github.com/MetaCubeX/metacubexd/issues/2017)
+* **proxies:** make 'auto switch to recommended' setting work ([#2025](https://github.com/MetaCubeX/metacubexd/issues/2025)) ([13e6f18](https://github.com/MetaCubeX/metacubexd/commit/13e6f18dc1766bab9c6763991ce0f2c3554e4742)), closes [#1971](https://github.com/MetaCubeX/metacubexd/issues/1971)
+* use opaque apple-touch-icon to remove iOS black corners ([#2022](https://github.com/MetaCubeX/metacubexd/issues/2022)) ([be7aeb3](https://github.com/MetaCubeX/metacubexd/commit/be7aeb3780bee0666bd52b2c2c458b4e4039a143)), closes [#436](https://github.com/MetaCubeX/metacubexd/issues/436)
+* **versions:** stop showing bogus backend update for sing-box ([#2027](https://github.com/MetaCubeX/metacubexd/issues/2027)) ([4af41c4](https://github.com/MetaCubeX/metacubexd/commit/4af41c4554107603379de4b72bf5d554d1978dd7))
+
+## [1.254.0](https://github.com/MetaCubeX/metacubexd/compare/v1.253.0...v1.254.0) (2026-06-13)
+
+
+### Features
+
+* add competitor-parity features across proxies, connections, logs, config ([4d58a99](https://github.com/MetaCubeX/metacubexd/commit/4d58a990765a081c064af3b3181355f35fb31f0e))
+
+
+### Bug Fixes
+
+* **connections:** drop duplicate IPInfo re-export from useGeoLookup ([986600b](https://github.com/MetaCubeX/metacubexd/commit/986600bedb7cbbb3f2bc3373f0b2f7c594369d23))
+
+## [1.253.0](https://github.com/MetaCubeX/metacubexd/compare/v1.252.0...v1.253.0) (2026-06-13)
+
+
+### Features
+
+* **proxies:** add i18n for table/chips/master display modes ([249b2f8](https://github.com/MetaCubeX/metacubexd/commit/249b2f883a44f68e7b31e703505386f9ec6bffcf))
+* **proxies:** add ProxyMasterDetail master-detail layout component ([a2a1d40](https://github.com/MetaCubeX/metacubexd/commit/a2a1d4076127e7472ca298955c65c77e007818cf))
+* **proxies:** add ProxyNodeChip component for chips display mode ([e7237c9](https://github.com/MetaCubeX/metacubexd/commit/e7237c9078a50be19ab6264866f45f609302386e))
+* **proxies:** add ProxyNodeTableRow component for table display mode ([aa476c7](https://github.com/MetaCubeX/metacubexd/commit/aa476c7bbedad827fc012f86e7ac572118962814))
+* **proxies:** add resolveActiveGroup helper for master-detail ([055921d](https://github.com/MetaCubeX/metacubexd/commit/055921dc6ce72d71d80aa73a2e38ad304c0fc6b1))
+* **proxies:** extend display mode enum with table/chips/master ([60881b5](https://github.com/MetaCubeX/metacubexd/commit/60881b57aaacd964c40b01cb3066858900d0f16b))
+* **proxies:** master-detail layout on proxies tab, list fallback for providers ([1085a67](https://github.com/MetaCubeX/metacubexd/commit/1085a6740cbd27649c3fd074aa22b35145e219f0))
+* **proxies:** render chips mode in group panels ([5c08965](https://github.com/MetaCubeX/metacubexd/commit/5c08965c674d08f4ad34a5a409d8344fc43bfdea))
+* **proxies:** render table mode with per-group header row ([8b02fdc](https://github.com/MetaCubeX/metacubexd/commit/8b02fdc880811a9e5d59b1362a5c9173d442c6f4))
+* **proxies:** toolbar segmented display-mode switcher, drop settings select ([8be9dfd](https://github.com/MetaCubeX/metacubexd/commit/8be9dfd1b390ab4e8130ae2c917f2b508a6af6b2))
+
+
+### Bug Fixes
+
+* **proxies:** make table & master-detail modes mobile-friendly ([7ee86e4](https://github.com/MetaCubeX/metacubexd/commit/7ee86e432d899e0850da6595e7ddc50220048489))
+* **proxies:** use real i18n keys for table header to stop intlify warnings ([1e6ace8](https://github.com/MetaCubeX/metacubexd/commit/1e6ace8017ca3b22cb734659259bc0721c98c1d4))
+* **pwa:** skip manifest link tag under nuxt dev ([ed27509](https://github.com/MetaCubeX/metacubexd/commit/ed2750918110bb9c4d322c8acb7bb21a4477c319))
+
+## [1.252.0](https://github.com/MetaCubeX/metacubexd/compare/v1.251.3...v1.252.0) (2026-06-13)
+
+
+### Features
+
+* **proxies:** add collapse/expand all proxy groups toggle ([12dbea7](https://github.com/MetaCubeX/metacubexd/commit/12dbea7bdf22eae7dd9819f2b4ef2c23c951dc6c))
+
 ## [1.251.3](https://github.com/MetaCubeX/metacubexd/compare/v1.251.2...v1.251.3) (2026-06-05)
 
 

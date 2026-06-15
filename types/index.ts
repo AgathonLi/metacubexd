@@ -157,7 +157,8 @@ export interface Config {
   'allow-lan': boolean
   'bind-address': string
   'inbound-tfo': boolean
-  UnifiedDelay: boolean
+  'unified-delay'?: boolean
+  UnifiedDelay?: boolean
   'log-level': string
   ipv6: boolean
   'interface-name': string
@@ -237,6 +238,8 @@ export interface Endpoint {
   id: string
   url: string
   secret: string
+  // Optional friendly label shown instead of the raw URL in endpoint lists
+  label?: string
 }
 
 export type ProxyWithProvider = Proxy & { provider?: string }

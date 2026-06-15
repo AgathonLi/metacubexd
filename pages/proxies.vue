@@ -7,23 +7,31 @@ import type {
 import {
   IconBrandSpeedtest,
   IconChevronRight,
+  IconChevronsDown,
+  IconChevronsUp,
   IconGlobe,
   IconPinnedOff,
   IconReload,
+  IconSearch,
   IconSettings,
   IconWand,
+  IconX,
 } from '@tabler/icons-vue'
 import byteSize from 'byte-size'
 import { throttle } from 'lodash-es'
 import Button from '~/components/Button.vue'
 import ProxyNodeCard from '~/components/ProxyNodeCard.vue'
+import ProxyNodeChip from '~/components/ProxyNodeChip.vue'
 import ProxyNodeListItem from '~/components/ProxyNodeListItem.vue'
 import ProxyNodePreview from '~/components/ProxyNodePreview.vue'
+import ProxyNodeTableRow from '~/components/ProxyNodeTableRow.vue'
 import SubscriptionInfo from '~/components/SubscriptionInfo.vue'
 import { useBatchLatencyTest } from '~/composables/useBatchLatencyTest'
+import { PROXIES_DISPLAY_MODE } from '~/constants'
 import {
   encodeSvg,
   filterProxiesByAvailability,
+  filterProxiesByName,
   formatProxyType,
   formatTimeFromNow,
   sortProxiesByOrderingType,
@@ -71,19 +79,46 @@ const getRecommendedNode = (proxyGroup: ProxyType) => {
 const testAllGroups = async () => {
   const groupNames = renderProxies.value.map((p) => p.name)
   await testMultipleGroups(groupNames)
+  autoSwitchAfterTest(renderProxies.value)
 }
 
-// Switch to recommended node in a group
+// Switch to recommended node in a group. No-op when there is no better node
+// than the one already selected — avoids needlessly pinning an automatic
+// (url-test/fallback) group to its current node.
 const switchToRecommended = (proxyGroup: ProxyType) => {
   const recommended = getRecommendedNode(proxyGroup)
-  if (recommended) {
+  if (recommended && recommended !== proxyGroup.now) {
     proxiesStore.selectProxyInGroup(proxyGroup, recommended)
+  }
+}
+
+// Honor the "auto switch to recommended" setting (#1971): once a latency test
+// has refreshed the performance data, move the tested group(s) to their
+// recommended node. Does nothing unless the user enabled the toggle.
+const autoSwitchAfterTest = (proxyGroups: ProxyType[]) => {
+  if (!nodeRecommendationStore.autoSwitchEnabled) return
+  for (const proxyGroup of proxyGroups) {
+    switchToRecommended(proxyGroup)
   }
 }
 
 const renderProxies = computed(() =>
   proxiesStore.proxies.filter((proxy) => !proxy.hidden),
 )
+
+// Whether any rendered proxy group is currently expanded. Drives the
+// collapse/expand-all toggle: if any group is open we offer "collapse all",
+// otherwise "expand all". (collapsedMap[name] === true means expanded.)
+const anyGroupExpanded = computed(() =>
+  renderProxies.value.some((proxy) => proxiesStore.collapsedMap[proxy.name]),
+)
+
+const toggleAllGroups = () => {
+  const expand = !anyGroupExpanded.value
+  for (const proxyGroup of renderProxies.value) {
+    proxiesStore.collapsedMap[proxyGroup.name] = expand
+  }
+}
 
 const tabs = computed(() => [
   {
@@ -111,7 +146,7 @@ function getSortedProxyNames(proxyGroup: ProxyType) {
     performanceData: nodeRecommendationStore.performanceData,
   })
 
-  return filterProxiesByAvailability({
+  const available = filterProxiesByAvailability({
     proxyNames: sorted,
     enabled: configStore.hideUnAvailableProxies,
     testUrl: proxyGroup.testUrl || null,
@@ -120,12 +155,14 @@ function getSortedProxyNames(proxyGroup: ProxyType) {
     latencyQualityMap: configStore.latencyQualityMap,
     urlForLatencyTest: configStore.urlForLatencyTest,
   })
+
+  return filterProxiesByName(available, configStore.proxiesGroupNameFilter)
 }
 
 function getProviderProxyNames(
   provider: ProxyProvider & { proxies: ProxyNodeWithProvider[] },
 ) {
-  return sortProxiesByOrderingType({
+  const sorted = sortProxiesByOrderingType({
     proxyNames: provider.proxies.map((p) => p.name),
     orderingType: configStore.proxiesOrderingType,
     testUrl: provider.testUrl,
@@ -135,6 +172,8 @@ function getProviderProxyNames(
     urlForLatencyTest: configStore.urlForLatencyTest,
     performanceData: nodeRecommendationStore.performanceData,
   })
+
+  return filterProxiesByName(sorted, configStore.proxiesGroupNameFilter)
 }
 
 // Cache sorted/filtered proxy names per group so each render reuses the result
@@ -290,9 +329,12 @@ const ProxyGroupTitle = defineComponent({
                     proxiesStore.proxyGroupLatencyTestingMap[
                       props.proxyGroup.name
                     ],
-                  onClick: (e: MouseEvent) => {
+                  onClick: async (e: MouseEvent) => {
                     e.stopPropagation()
-                    proxiesStore.proxyGroupLatencyTest(props.proxyGroup.name)
+                    await proxiesStore.proxyGroupLatencyTest(
+                      props.proxyGroup.name,
+                    )
+                    autoSwitchAfterTest([props.proxyGroup])
                   },
                 },
                 {
@@ -348,6 +390,22 @@ const ProxyGroupTitle = defineComponent({
   },
 })
 
+// Pick the per-group node component for the current display mode (card is the
+// default). Master-detail is not a per-group renderer — it bypasses Collapse and
+// gets its own page-level branch in the template (see isMasterMode below).
+function nodeComponentFor(mode: string) {
+  if (mode === PROXIES_DISPLAY_MODE.LIST) return ProxyNodeListItem
+  if (mode === PROXIES_DISPLAY_MODE.CHIPS) return ProxyNodeChip
+  if (mode === PROXIES_DISPLAY_MODE.TABLE) return ProxyNodeTableRow
+  return ProxyNodeCard
+}
+
+// Master-detail is a page-level layout (Proxies tab only), not a per-group
+// node renderer, so it gets its own branch in the template.
+const isMasterMode = computed(
+  () => configStore.proxiesDisplayMode === PROXIES_DISPLAY_MODE.MASTER,
+)
+
 // ProxyNodes component
 const ProxyNodes = defineComponent({
   props: {
@@ -390,28 +448,27 @@ const ProxyNodes = defineComponent({
 
     return () => {
       const names = props.sortedProxyNames
+      const Comp = nodeComponentFor(configStore.proxiesDisplayMode)
+      // isRecommended/groupName are card-only props. ListItem/Chip/TableRow don't
+      // declare them, and Vue turns undeclared props into fallthrough DOM
+      // attributes — so only pass them to the card to keep other rows' markup clean.
+      const isCard = Comp === ProxyNodeCard
       const children = names.slice(0, renderCount.value).map((proxyName) =>
-        configStore.proxiesDisplayMode === 'listMode'
-          ? h(ProxyNodeListItem, {
-              key: proxyName,
-              proxyName,
-              testUrl: props.proxyGroup.testUrl || null,
-              timeout: props.proxyGroup.timeout ?? null,
-              isSelected: props.proxyGroup.now === proxyName,
-              onClick: () =>
-                proxiesStore.selectProxyInGroup(props.proxyGroup, proxyName),
-            })
-          : h(ProxyNodeCard, {
-              key: proxyName,
-              proxyName,
-              testUrl: props.proxyGroup.testUrl || null,
-              timeout: props.proxyGroup.timeout ?? null,
-              isSelected: props.proxyGroup.now === proxyName,
-              isRecommended: recommendedNode.value === proxyName,
-              groupName: props.proxyGroup.name,
-              onClick: () =>
-                proxiesStore.selectProxyInGroup(props.proxyGroup, proxyName),
-            }),
+        h(Comp, {
+          key: proxyName,
+          proxyName,
+          testUrl: props.proxyGroup.testUrl || null,
+          timeout: props.proxyGroup.timeout ?? null,
+          isSelected: props.proxyGroup.now === proxyName,
+          ...(isCard
+            ? {
+                isRecommended: recommendedNode.value === proxyName,
+                groupName: props.proxyGroup.name,
+              }
+            : {}),
+          onClick: () =>
+            proxiesStore.selectProxyInGroup(props.proxyGroup, proxyName),
+        }),
       )
 
       if (renderCount.value < names.length) {
@@ -591,22 +648,20 @@ const ProviderProxyNodes = defineComponent({
 
     return () => {
       const names = props.sortedProxyNames
+      // Provider tab does not support master-detail; degrade master → list.
+      const providerMode =
+        configStore.proxiesDisplayMode === PROXIES_DISPLAY_MODE.MASTER
+          ? PROXIES_DISPLAY_MODE.LIST
+          : configStore.proxiesDisplayMode
+      const Comp = nodeComponentFor(providerMode)
       const children = names.slice(0, renderCount.value).map((proxyName) =>
-        configStore.proxiesDisplayMode === 'listMode'
-          ? h(ProxyNodeListItem, {
-              key: proxyName,
-              proxyName,
-              testUrl: props.provider.testUrl,
-              timeout: props.provider.timeout ?? null,
-              providerName: props.provider.name,
-            })
-          : h(ProxyNodeCard, {
-              key: proxyName,
-              proxyName,
-              testUrl: props.provider.testUrl,
-              timeout: props.provider.timeout ?? null,
-              providerName: props.provider.name,
-            }),
+        h(Comp, {
+          key: proxyName,
+          proxyName,
+          testUrl: props.provider.testUrl,
+          timeout: props.provider.timeout ?? null,
+          providerName: props.provider.name,
+        }),
       )
 
       if (renderCount.value < names.length) {
@@ -661,6 +716,30 @@ const ProviderProxyNodes = defineComponent({
 
       <!-- Action Buttons -->
       <div class="flex items-center gap-2">
+        <ProxiesDisplayModeSwitcher />
+
+        <!-- Collapse / Expand All Groups Button -->
+        <Button
+          v-if="activeTab === 'proxies'"
+          class="flex h-9 items-center gap-1.5 rounded-[0.625rem] border border-base-content/10 bg-base-200/80 px-3 transition-all duration-200 hover:border-primary/30 hover:bg-primary/15 hover:text-primary"
+          :title="
+            anyGroupExpanded
+              ? t('collapseAll', 'Collapse All')
+              : t('expandAll', 'Expand All')
+          "
+          @click="toggleAllGroups"
+        >
+          <IconChevronsUp v-if="anyGroupExpanded" :size="18" />
+          <IconChevronsDown v-else :size="18" />
+          <span class="hidden text-sm font-medium sm:inline">
+            {{
+              anyGroupExpanded
+                ? t('collapseAll', 'Collapse All')
+                : t('expandAll', 'Expand All')
+            }}
+          </span>
+        </Button>
+
         <!-- Test All Groups Button -->
         <Button
           v-if="activeTab === 'proxies'"
@@ -712,8 +791,29 @@ const ProviderProxyNodes = defineComponent({
         </Button>
       </div>
 
+      <!-- Node Name Filter -->
+      <div
+        class="ml-auto flex h-9 min-w-40 flex-1 items-center gap-2 rounded-[0.625rem] border border-base-content/10 bg-base-200/80 px-3 transition-all duration-200 focus-within:border-primary/40 focus-within:shadow-[0_0_0_3px] focus-within:shadow-primary/10 sm:max-w-64"
+      >
+        <IconSearch :size="16" class="shrink-0 opacity-50" />
+        <input
+          v-model="configStore.proxiesGroupNameFilter"
+          class="w-full bg-transparent text-sm outline-none placeholder:opacity-50"
+          type="search"
+          :placeholder="t('filterNodesByName')"
+        />
+        <Button
+          v-if="configStore.proxiesGroupNameFilter"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-base-content/45 transition-colors duration-200 hover:bg-base-content/10 hover:text-base-content"
+          :title="t('clear')"
+          @click="configStore.proxiesGroupNameFilter = ''"
+        >
+          <IconX :size="14" />
+        </Button>
+      </div>
+
       <!-- Settings Button -->
-      <div class="ml-auto">
+      <div>
         <Button
           class="flex h-9 w-9 items-center justify-center rounded-[0.625rem] border border-base-content/10 bg-primary/10 text-primary transition-all duration-200 hover:border-primary/30 hover:bg-primary/15"
           @click="settingsModal?.open()"
@@ -728,8 +828,14 @@ const ProviderProxyNodes = defineComponent({
       v-if="activeTab === 'proxies'"
       ref="proxiesScrollEl"
       class="min-h-0 flex-1 overflow-y-auto"
+      :class="isMasterMode ? 'overflow-hidden' : ''"
     >
-      <ProxiesRenderWrapper ref="proxyGroupsWrapper">
+      <ProxyMasterDetail
+        v-if="isMasterMode"
+        :groups="renderProxies"
+        :sorted-names-by-group="sortedNamesByGroup"
+      />
+      <ProxiesRenderWrapper v-else ref="proxyGroupsWrapper">
         <template v-if="proxyGroupsWrapper?.isTwoColumns" #even>
           <Collapse
             v-for="(proxyGroup, index) in renderProxies.filter(
@@ -1046,23 +1152,6 @@ const ProviderProxyNodes = defineComponent({
               type="checkbox"
             />
           </div>
-        </div>
-
-        <div>
-          <ConfigTitle with-divider>
-            {{ t('proxiesDisplayMode') }}
-          </ConfigTitle>
-          <select
-            v-model="configStore.proxiesDisplayMode"
-            class="select-bordered select w-full"
-          >
-            <option value="cardMode">
-              {{ t('cardMode') }}
-            </option>
-            <option value="listMode">
-              {{ t('listMode') }}
-            </option>
-          </select>
         </div>
 
         <div>

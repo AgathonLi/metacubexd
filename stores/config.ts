@@ -3,6 +3,7 @@ import type {
   ConnectionsTableColumnOrder,
   ConnectionsTableColumnVisibility,
 } from '~/types'
+import type { IPProvider } from '~/types/network'
 import { defineStore } from 'pinia'
 import {
   CONNECTIONS_TABLE_INITIAL_COLUMN_ORDER,
@@ -15,6 +16,7 @@ import {
   PROXIES_DISPLAY_MODE,
   PROXIES_ORDERING_TYPE,
   PROXIES_PREVIEW_TYPE,
+  RULES_ORDERING_TYPE,
   TAILWINDCSS_SIZE,
 } from '~/constants'
 
@@ -166,6 +168,71 @@ export const useConfigStore = defineStore('config', () => {
     true,
   )
 
+  // Proxies: in-group node name filter (case-insensitive substring on node name)
+  const proxiesGroupNameFilter = useLocalStorage('proxiesGroupNameFilter', '')
+  // Proxies: show an A-Z quick-jump index rail for long node lists
+  const enableProxiesAlphabetIndex = useLocalStorage(
+    'enableProxiesAlphabetIndex',
+    false,
+  )
+
+  // Rules: sort order + quick-filter selections (persisted across reloads).
+  // Sort is a standalone preference; the filters reset together via
+  // resetRulesFilters. Empty type/policy arrays + 'all' status = no constraint.
+  const rulesOrderingType = useLocalStorage<RULES_ORDERING_TYPE>(
+    'rulesOrderingType',
+    RULES_ORDERING_TYPE.NATURAL,
+  )
+  const rulesTypeFilter = useLocalStorage<string[]>('rulesTypeFilter', [])
+  const rulesPolicyFilter = useLocalStorage<string[]>('rulesPolicyFilter', [])
+  const rulesStatusFilter = useLocalStorage<'all' | 'enabled' | 'disabled'>(
+    'rulesStatusFilter',
+    'all',
+  )
+
+  const resetRulesFilters = () => {
+    rulesTypeFilter.value = []
+    rulesPolicyFilter.value = []
+    rulesStatusFilter.value = 'all'
+  }
+
+  // Connections: per-connection GeoIP enrichment (country flag / city / ASN).
+  // Off by default because it issues outbound requests to a 3rd-party IP API.
+  const showConnectionGeoIP = useLocalStorage('showConnectionGeoIP', false)
+  const connectionGeoIPProvider = useLocalStorage<IPProvider>(
+    'connectionGeoIPProvider',
+    'ipwho.is',
+  )
+
+  // Appearance: custom background. 'custom' = user-uploaded image (IndexedDB),
+  // 'url' = remote image URL (e.g. a Bing daily-wallpaper endpoint).
+  const backgroundImageType = useLocalStorage<'none' | 'custom' | 'url'>(
+    'backgroundImageType',
+    'none',
+  )
+  // Remote image URL used when backgroundImageType === 'url'
+  const backgroundImageUrl = useLocalStorage('backgroundImageUrl', '')
+  // Backdrop blur radius (px) applied over the background image
+  const backgroundBlur = useLocalStorage('backgroundBlur', 0)
+  // Opacity (%) of the base surface laid over the background image, so cards/text
+  // stay legible. 100 = fully opaque (background hidden), 0 = fully transparent.
+  const backgroundOverlayOpacity = useLocalStorage(
+    'backgroundOverlayOpacity',
+    70,
+  )
+  // Appearance: custom DaisyUI theme color overrides (CSS custom properties).
+  const enableCustomThemeColors = useLocalStorage(
+    'enableCustomThemeColors',
+    false,
+  )
+  // Map of DaisyUI color token -> CSS color value, e.g. { primary: '#...' }.
+  const customThemeColors = useLocalStorage<Record<string, string>>(
+    'customThemeColors',
+    {},
+  )
+  // Appearance: UI font family ('' = default bundled stack)
+  const fontFamily = useLocalStorage('fontFamily', '')
+
   // Computed
   const isLatencyTestByHttps = computed(() =>
     urlForLatencyTest.value.startsWith('https'),
@@ -216,6 +283,8 @@ export const useConfigStore = defineStore('config', () => {
     latencyHighThreshold.value = 0
     iconHeight.value = 24
     iconMarginRight.value = 8
+    proxiesGroupNameFilter.value = ''
+    enableProxiesAlphabetIndex.value = false
   }
 
   const resetXdConfig = () => {
@@ -228,6 +297,13 @@ export const useConfigStore = defineStore('config', () => {
     curTheme.value = 'sunset'
     defaultPage.value = 'overview'
     enableDataUsageTracking.value = true
+    backgroundImageType.value = 'none'
+    backgroundImageUrl.value = ''
+    backgroundBlur.value = 0
+    backgroundOverlayOpacity.value = 70
+    enableCustomThemeColors.value = false
+    customThemeColors.value = {}
+    fontFamily.value = ''
   }
 
   return {
@@ -278,6 +354,26 @@ export const useConfigStore = defineStore('config', () => {
     showNetworkTopology,
     // Data usage
     enableDataUsageTracking,
+    // Proxies in-group filter & alphabet index
+    proxiesGroupNameFilter,
+    enableProxiesAlphabetIndex,
+    // Rules
+    rulesOrderingType,
+    rulesTypeFilter,
+    rulesPolicyFilter,
+    rulesStatusFilter,
+    resetRulesFilters,
+    // Connections GeoIP
+    showConnectionGeoIP,
+    connectionGeoIPProvider,
+    // Appearance
+    backgroundImageType,
+    backgroundImageUrl,
+    backgroundBlur,
+    backgroundOverlayOpacity,
+    enableCustomThemeColors,
+    customThemeColors,
+    fontFamily,
     // Computed
     isLatencyTestByHttps,
     latencyQualityMap,
